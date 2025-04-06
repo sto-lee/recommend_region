@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
     Container,
     Paper,
@@ -7,6 +7,13 @@ import {
     Box,
     Card,
     CardContent,
+    Chip,
+    Stack,
+    Button,
+    List,
+    ListItem,
+    ListItemText,
+    Divider,
 } from '@mui/material';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 
@@ -29,23 +36,28 @@ interface RecommendationData {
         count: number;
         distance: number;
     }[];
-    dongs: {
-        name: string;
-        lat: number;
-        lng: number;
-        score: number;
-    }[];
+    averagePrice: {
+        deposit: number;
+        monthlyRent: number;
+    };
+    safetyScore: number;
+    transportation: {
+        subway: number;
+        bus: number;
+    };
 }
 
 interface PreferenceData {
-    residenceType: string;
-    deposit: string;
-    monthlyRent: string;
+    purpose: string;
     preferredDistricts: string[];
-    maxCommuteTime: number;
     facilities: {
         [key: string]: boolean;
     };
+    residenceType: string;
+    deposit: string;
+    monthlyRent: string;
+    transportation: string[];
+    maxCommuteTime: number;
     workplaceLocation: string;
 }
 
@@ -53,73 +65,114 @@ const COLORS = ['#007AFF', '#FF2D55', '#34C759', '#FF9500', '#5856D6'];
 
 const RecommendResult = () => {
     const location = useLocation();
+    const navigate = useNavigate();
     const preferenceData = location.state as PreferenceData;
-    const [recommendationData] = useState<RecommendationData>({
+    const [recommendationData, setRecommendationData] = useState<RecommendationData>({
         district: preferenceData.preferredDistricts[0] || '강남구',
         score: 85,
         reasons: [
-            { category: '교통 편의성', value: 35 },
-            { category: '주변 시설', value: 25 },
-            { category: '안전도', value: 20 },
-            { category: '환경', value: 20 },
+        { category: '교통 편의성', value: 35 },
+        { category: '주변 시설', value: 25 },
+        { category: '안전도', value: 20 },
+        { category: '환경', value: 20 },
         ],
         facilities: [
-            { name: '지하철역', count: 3, distance: 0.5 },
-            { name: '버스정류장', count: 5, distance: 0.3 },
-            { name: '편의점', count: 8, distance: 0.2 },
-            { name: '카페', count: 12, distance: 0.4 },
-            { name: '병원', count: 2, distance: 0.8 },
+        { name: '지하철역', count: 3, distance: 0.5 },
+        { name: '버스정류장', count: 5, distance: 0.3 },
+        { name: '편의점', count: 8, distance: 0.2 },
+        { name: '카페', count: 12, distance: 0.4 },
+        { name: '병원', count: 2, distance: 0.8 },
         ],
-        dongs: [
-            { name: '역삼동', lat: 37.5006, lng: 127.0369, score: 95 },
-            { name: '논현동', lat: 37.5087, lng: 127.0395, score: 92 },
-            { name: '삼성동', lat: 37.5145, lng: 127.0629, score: 90 },
-            { name: '청담동', lat: 37.5194, lng: 127.0567, score: 88 },
-            { name: '도곡동', lat: 37.4909, lng: 127.0552, score: 85 },
-        ],
+        averagePrice: {
+        deposit: 10000,
+        monthlyRent: 80,
+        },
+        safetyScore: 85,
+        transportation: {
+        subway: 3,
+        bus: 5,
+        },
     });
 
-    const initializeMap = useCallback(() => {
-        const container = document.getElementById('map');
-        if (!container) {
-            console.error('Map container not found');
-            return;
-        }
+    useEffect(() => {
+        // 카카오맵 초기화
+        const script = document.createElement('script');
+        script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.REACT_APP_KAKAO_MAP_API_KEY}&libraries=services,clusterer`;
+        script.async = true;
+        document.head.appendChild(script);
 
-        try {
-            const options = {
-                center: new window.kakao.maps.LatLng(37.5006, 127.0369),
-                level: 3,
-            };
-            const map = new window.kakao.maps.Map(container, options);
-            console.log('Map initialized successfully');
+                // 동 마커 생성
+                recommendationData.dongs.forEach((dong) => {
+                    const marker = new window.kakao.maps.Marker({
+                        position: new window.kakao.maps.LatLng(dong.lat, dong.lng),
+                        map: map,
+                    });
 
-            // 동 마커 생성
-            recommendationData.dongs.forEach((dong) => {
-                const marker = new window.kakao.maps.Marker({
-                    position: new window.kakao.maps.LatLng(dong.lat, dong.lng),
-                    map: map,
-                });
+        const options = {
+            center: new window.kakao.maps.LatLng(37.5665, 126.9780),
+            level: 3,
+        };
+        const map = new window.kakao.maps.Map(container, options);
 
-                // 인포윈도우 생성
-                const infowindow = new window.kakao.maps.InfoWindow({
-                    content: `
-                        <div style="padding: 10px; min-width: 150px;">
-                            <div style="font-weight: bold; margin-bottom: 5px;">${dong.name}</div>
-                            <div style="color: #007AFF; font-weight: 500;">${dong.score}점</div>
-                        </div>
-                    `,
-                });
+        // 마커 생성
+        const marker = new window.kakao.maps.Marker({
+            position: new window.kakao.maps.LatLng(37.5665, 126.9780),
+        });
+        marker.setMap(map);
+        };
 
-                // 마커 클릭 이벤트
-                window.kakao.maps.event.addListener(marker, 'click', () => {
-                    infowindow.open(map, marker);
-                });
+        // 마커 클릭 이벤트
+        window.kakao.maps.event.addListener(marker, 'click', () => {
+            infowindow.open(map, marker);
+        });
 
-                // 마커에 마우스오버 이벤트
-                window.kakao.maps.event.addListener(marker, 'mouseover', () => {
-                    infowindow.open(map, marker);
-                });
+    const handleRestart = () => {
+        navigate('/preference');
+    };
+
+    return (
+        <Container maxWidth="lg" sx={{ mt: 4, mb: 8 }}>
+        <Paper
+            elevation={0}
+            sx={{
+            p: 4,
+            borderRadius: '24px',
+            background: 'rgba(255, 255, 255, 0.8)',
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)',
+            }}
+        >
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+            <Typography
+                variant="h4"
+                sx={{
+                fontWeight: 600,
+                background: 'linear-gradient(90deg, #007AFF 0%, #FF2D55 100%)',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                }}
+            >
+                추천 결과
+            </Typography>
+            <Button
+                variant="outlined"
+                onClick={handleRestart}
+                sx={{
+                borderRadius: '12px',
+                px: 3,
+                py: 1,
+                borderColor: '#007AFF',
+                color: '#007AFF',
+                '&:hover': {
+                    borderColor: '#0056b3',
+                    color: '#0056b3',
+                },
+                }}
+            >
+                다시하기
+            </Button>
+            </Box>
 
                 // 마커에 마우스아웃 이벤트
                 window.kakao.maps.event.addListener(marker, 'mouseout', () => {
@@ -315,9 +368,49 @@ const RecommendResult = () => {
                         </CardContent>
                     </Card>
                 </Box>
-            </Paper>
-        </Container>
-    );
+              </CardContent>
+            </Card>
+
+            <Card
+              sx={{
+                borderRadius: '16px',
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+              }}
+            >
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  상세 정보
+                </Typography>
+                <List>
+                  <ListItem>
+                    <ListItemText
+                      primary="평균 시세"
+                      secondary={`보증금 ${recommendationData.averagePrice.deposit.toLocaleString()}만원 / 월세 ${recommendationData.averagePrice.monthlyRent.toLocaleString()}만원`}
+                    />
+                  </ListItem>
+                  <Divider />
+                  <ListItem>
+                    <ListItemText
+                      primary="안전도"
+                      secondary={`${recommendationData.safetyScore}점`}
+                    />
+                  </ListItem>
+                  <Divider />
+                  <ListItem>
+                    <ListItemText
+                      primary="교통"
+                      secondary={`지하철 ${recommendationData.transportation.subway}개 / 버스 ${recommendationData.transportation.bus}개`}
+                    />
+                  </ListItem>
+                </List>
+              </CardContent>
+            </Card>
+          </Stack>
+        </Box>
+      </Paper>
+    </Container>
+  );
 };
 
 export default RecommendResult; 
