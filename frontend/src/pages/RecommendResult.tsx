@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Container,
   Paper,
@@ -9,6 +9,11 @@ import {
   CardContent,
   Chip,
   Stack,
+  Button,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
 } from '@mui/material';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 
@@ -31,17 +36,28 @@ interface RecommendationData {
     count: number;
     distance: number;
   }[];
+  averagePrice: {
+    deposit: number;
+    monthlyRent: number;
+  };
+  safetyScore: number;
+  transportation: {
+    subway: number;
+    bus: number;
+  };
 }
 
 interface PreferenceData {
-  residenceType: string;
-  deposit: string;
-  monthlyRent: string;
+  purpose: string;
   preferredDistricts: string[];
-  maxCommuteTime: number;
   facilities: {
     [key: string]: boolean;
   };
+  residenceType: string;
+  deposit: string;
+  monthlyRent: string;
+  transportation: string[];
+  maxCommuteTime: number;
   workplaceLocation: string;
 }
 
@@ -49,8 +65,9 @@ const COLORS = ['#007AFF', '#FF2D55', '#34C759', '#FF9500', '#5856D6'];
 
 const RecommendResult = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const preferenceData = location.state as PreferenceData;
-  const [recommendationData] = useState<RecommendationData>({
+  const [recommendationData, setRecommendationData] = useState<RecommendationData>({
     district: preferenceData.preferredDistricts[0] || '강남구',
     score: 85,
     reasons: [
@@ -66,15 +83,16 @@ const RecommendResult = () => {
       { name: '카페', count: 12, distance: 0.4 },
       { name: '병원', count: 2, distance: 0.8 },
     ],
+    averagePrice: {
+      deposit: 10000,
+      monthlyRent: 80,
+    },
+    safetyScore: 85,
+    transportation: {
+      subway: 3,
+      bus: 5,
+    },
   });
-
-  useEffect(() => {
-    // 여기에 추천 로직 구현
-    // 1. 선택된 구 내의 지역들을 분석
-    // 2. 사용자 선호도에 따라 점수 계산
-    // 3. 최적의 지역 선택
-    // 4. 카카오맵에 마커 표시
-  }, [preferenceData]);
 
   useEffect(() => {
     // 카카오맵 초기화
@@ -91,7 +109,13 @@ const RecommendResult = () => {
         center: new window.kakao.maps.LatLng(37.5665, 126.9780),
         level: 3,
       };
-      new window.kakao.maps.Map(container, options);
+      const map = new window.kakao.maps.Map(container, options);
+
+      // 마커 생성
+      const marker = new window.kakao.maps.Marker({
+        position: new window.kakao.maps.LatLng(37.5665, 126.9780),
+      });
+      marker.setMap(map);
     };
 
     return () => {
@@ -101,6 +125,10 @@ const RecommendResult = () => {
       }
     };
   }, []);
+
+  const handleRestart = () => {
+    navigate('/preference');
+  };
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 8 }}>
@@ -114,21 +142,37 @@ const RecommendResult = () => {
           boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)',
         }}
       >
-        <Typography
-          variant="h4"
-          gutterBottom
-          align="center"
-          sx={{
-            fontWeight: 600,
-            mb: 4,
-            background: 'linear-gradient(90deg, #007AFF 0%, #FF2D55 100%)',
-            backgroundClip: 'text',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}
-        >
-          추천 결과
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+          <Typography
+            variant="h4"
+            sx={{
+              fontWeight: 600,
+              background: 'linear-gradient(90deg, #007AFF 0%, #FF2D55 100%)',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
+          >
+            추천 결과
+          </Typography>
+          <Button
+            variant="outlined"
+            onClick={handleRestart}
+            sx={{
+              borderRadius: '12px',
+              px: 3,
+              py: 1,
+              borderColor: '#007AFF',
+              color: '#007AFF',
+              '&:hover': {
+                borderColor: '#0056b3',
+                color: '#0056b3',
+              },
+            }}
+          >
+            다시하기
+          </Button>
+        </Box>
 
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 4 }}>
           {/* 지도 섹션 */}
@@ -236,6 +280,42 @@ const RecommendResult = () => {
                     </PieChart>
                   </ResponsiveContainer>
                 </Box>
+              </CardContent>
+            </Card>
+
+            <Card
+              sx={{
+                borderRadius: '16px',
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+              }}
+            >
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  상세 정보
+                </Typography>
+                <List>
+                  <ListItem>
+                    <ListItemText
+                      primary="평균 시세"
+                      secondary={`보증금 ${recommendationData.averagePrice.deposit.toLocaleString()}만원 / 월세 ${recommendationData.averagePrice.monthlyRent.toLocaleString()}만원`}
+                    />
+                  </ListItem>
+                  <Divider />
+                  <ListItem>
+                    <ListItemText
+                      primary="안전도"
+                      secondary={`${recommendationData.safetyScore}점`}
+                    />
+                  </ListItem>
+                  <Divider />
+                  <ListItem>
+                    <ListItemText
+                      primary="교통"
+                      secondary={`지하철 ${recommendationData.transportation.subway}개 / 버스 ${recommendationData.transportation.bus}개`}
+                    />
+                  </ListItem>
+                </List>
               </CardContent>
             </Card>
           </Stack>
